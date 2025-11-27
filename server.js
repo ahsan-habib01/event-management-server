@@ -4,8 +4,23 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// Middleware - CORS Configuration
+const corsOptions = {
+  origin:
+    process.env.NODE_ENV === 'production'
+      ? [
+          'https://event-management-client-dun.vercel.app',
+          'https://event-management-client.vercel.app',
+          /\.vercel\.app$/, // Allow all vercel.app domains
+        ]
+      : '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // In-memory database (for demo - in production use real database)
@@ -210,7 +225,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Start server (for local development)
+// Start server
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log('═══════════════════════════════════════');
@@ -224,5 +239,5 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Export for Vercel (serverless)
+// Export for Vercel
 module.exports = app;
