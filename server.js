@@ -210,14 +210,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('═══════════════════════════════════════');
-  console.log('🚀 EventHub API Server is running!');
-  console.log('═══════════════════════════════════════');
-  console.log(`📍 Server: http://localhost:${PORT}`);
-  console.log(`📋 Events API: http://localhost:${PORT}/api/events`);
-  console.log(`💚 Health: http://localhost:${PORT}/health`);
-  console.log(`📊 Current events in database: ${events.length}`);
-  console.log('═══════════════════════════════════════');
-});
+// Start server (for local development)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log('═══════════════════════════════════════');
+    console.log('🚀 EventHub API Server is running!');
+    console.log('═══════════════════════════════════════');
+    console.log(`📍 Server: http://localhost:${PORT}`);
+    console.log(`📋 Events API: http://localhost:${PORT}/api/events`);
+    console.log(`💚 Health: http://localhost:${PORT}/health`);
+    console.log(`📊 Current events in database: ${events.length}`);
+    console.log('═══════════════════════════════════════');
+  });
+}
+
+// Export for Vercel (serverless)
+module.exports = app;
