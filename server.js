@@ -38,6 +38,7 @@ let events = [
     price: '$299',
     category: 'Technology',
     imageUrl: '🚀',
+    createdBy: 'demo@example.com',
     createdAt: new Date().toISOString(),
   },
   {
@@ -53,6 +54,7 @@ let events = [
     price: '$150',
     category: 'Music',
     imageUrl: '🎵',
+    createdBy: 'demo@example.com',
     createdAt: new Date().toISOString(),
   },
   {
@@ -68,6 +70,7 @@ let events = [
     price: '$75',
     category: 'Food',
     imageUrl: '🍷',
+    createdBy: 'demo@example.com',
     createdAt: new Date().toISOString(),
   },
 ];
