@@ -1,246 +1,186 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware - CORS Configuration
-const corsOptions = {
-  origin:
-    process.env.NODE_ENV === 'production'
-      ? [
-          'https://event-management-client-dun.vercel.app',
-          'https://event-management-client.vercel.app',
-          /\.vercel\.app$/, // Allow all vercel.app domains
-        ]
-      : '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200,
-};
-
-app.use(cors(corsOptions));
+// Middleware
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
-// In-memory database (for demo - in production use real database)
-let events = [
-  {
-    id: 1,
-    title: 'Tech Conference 2024',
-    shortDescription:
-      'Join us for the biggest tech conference featuring industry leaders and innovators...',
-    fullDescription:
-      'Join us for the biggest tech conference of the year! This three-day event brings together industry leaders, innovators, and tech enthusiasts from around the world. Experience keynote speeches from top executives, hands-on workshops, and networking opportunities that will shape the future of technology.',
-    date: '2024-12-15',
-    time: '09:00',
-    location: 'Moscone Center, San Francisco, CA',
-    price: '$299',
-    category: 'Technology',
-    imageUrl: '🚀',
-    createdBy: 'demo@example.com',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: 'Music Festival Summer',
-    shortDescription:
-      'Experience three days of amazing music performances from top artists worldwide...',
-    fullDescription:
-      'Experience three unforgettable days of amazing music performances from top artists worldwide. This summer music festival features multiple stages with diverse genres including rock, pop, electronic, and indie music. Enjoy food trucks, art installations, and camping options.',
-    date: '2025-01-20',
-    time: '12:00',
-    location: 'Zilker Park, Austin, TX',
-    price: '$150',
-    category: 'Music',
-    imageUrl: '🎵',
-    createdBy: 'demo@example.com',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    title: 'Food & Wine Expo',
-    shortDescription:
-      'Taste exquisite dishes and wines from renowned chefs and sommeliers...',
-    fullDescription:
-      'Taste exquisite dishes and wines from renowned chefs and sommeliers from around the world. This culinary event features cooking demonstrations, wine tastings, and exclusive dining experiences that will delight your palate.',
-    date: '2025-02-05',
-    time: '10:00',
-    location: 'Javits Center, New York, NY',
-    price: '$75',
-    category: 'Food',
-    imageUrl: '🍷',
-    createdBy: 'demo@example.com',
-    createdAt: new Date().toISOString(),
-  },
-];
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI;
 
-let nextId = 4;
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => console.log('✅ MongoDB Connected'))
+  .catch(err => console.error('❌ MongoDB Error:', err));
+
+// Event Schema
+const eventSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  shortDescription: { type: String, required: true },
+  fullDescription: { type: String, required: true },
+  date: { type: String, required: true },
+  time: { type: String, default: '09:00' },
+  location: { type: String, required: true },
+  price: { type: String, required: true },
+  category: { type: String, default: 'Other' },
+  imageUrl: { type: String, default: '📅' },
+  createdBy: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Event = mongoose.model('Event', eventSchema);
 
 // ============ ROUTES ============
 
-// Root route
+// Root
 app.get('/', (req, res) => {
   res.json({
-    message: '🎉 EventHub API Server',
-    version: '1.0.0',
-    endpoints: {
-      events: '/api/events',
-      health: '/health',
-    },
+    message: '🎉 EventHub API',
+    status: 'Running',
+    database:
+      mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
   });
 });
 
-// Health check
+// Health Check
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
+    database:
+      mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
     timestamp: new Date().toISOString(),
-    eventsCount: events.length,
   });
 });
 
-// Get all events
-app.get('/api/events', (req, res) => {
-  console.log('📋 Fetching all events...');
-  res.json(events);
-});
-
-// Get single event by ID
-app.get('/api/events/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const event = events.find(e => e.id === id);
-
-  if (!event) {
-    console.log(`❌ Event not found: ID ${id}`);
-    return res.status(404).json({ error: 'Event not found' });
+// Get ALL events (public)
+app.get('/api/events', async (req, res) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 });
+    console.log(`📋 Fetched ${events.length} events`);
+    res.json(events);
+  } catch (error) {
+    console.error('❌ Error fetching events:', error);
+    res.status(500).json({ error: 'Failed to fetch events' });
   }
-
-  console.log(`✅ Found event: ${event.title}`);
-  res.json(event);
 });
 
-// Create new event
-app.post('/api/events', (req, res) => {
-  const {
-    title,
-    shortDescription,
-    fullDescription,
-    date,
-    time,
-    location,
-    price,
-    category,
-    imageUrl,
-  } = req.body;
+// Get single event
+app.get('/api/events/:id', async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    console.log(`✅ Found event: ${event.title}`);
+    res.json(event);
+  } catch (error) {
+    console.error('❌ Error fetching event:', error);
+    res.status(404).json({ error: 'Event not found' });
+  }
+});
 
-  // Validation
-  if (
-    !title ||
-    !shortDescription ||
-    !fullDescription ||
-    !date ||
-    !location ||
-    !price
-  ) {
-    return res.status(400).json({
-      error: 'Missing required fields',
-      required: [
-        'title',
-        'shortDescription',
-        'fullDescription',
-        'date',
-        'location',
-        'price',
-      ],
+// Get events by user
+app.get('/api/events/user/:email', async (req, res) => {
+  try {
+    const events = await Event.find({ createdBy: req.params.email }).sort({
+      createdAt: -1,
     });
+    console.log(`📋 Found ${events.length} events for ${req.params.email}`);
+    res.json(events);
+  } catch (error) {
+    console.error('❌ Error fetching user events:', error);
+    res.status(500).json({ error: 'Failed to fetch events' });
   }
-
-  const newEvent = {
-    id: nextId++,
-    title,
-    shortDescription,
-    fullDescription,
-    date,
-    time: time || '09:00',
-    location,
-    price,
-    category: category || 'Other',
-    imageUrl: imageUrl || '📅',
-    createdAt: new Date().toISOString(),
-  };
-
-  events.push(newEvent);
-  console.log(`✅ Created new event: ${newEvent.title} (ID: ${newEvent.id})`);
-
-  res.status(201).json(newEvent);
 });
 
-// Update event
-app.put('/api/events/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const eventIndex = events.findIndex(e => e.id === id);
+// Create event
+app.post('/api/events', async (req, res) => {
+  try {
+    const {
+      title,
+      shortDescription,
+      fullDescription,
+      date,
+      time,
+      location,
+      price,
+      category,
+      imageUrl,
+      createdBy,
+    } = req.body;
 
-  if (eventIndex === -1) {
-    return res.status(404).json({ error: 'Event not found' });
+    if (
+      !title ||
+      !shortDescription ||
+      !fullDescription ||
+      !date ||
+      !location ||
+      !price ||
+      !createdBy
+    ) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const event = new Event({
+      title,
+      shortDescription,
+      fullDescription,
+      date,
+      time: time || '09:00',
+      location,
+      price,
+      category: category || 'Other',
+      imageUrl: imageUrl || '📅',
+      createdBy,
+    });
+
+    await event.save();
+    console.log(`✅ Created event: ${event.title} by ${createdBy}`);
+    res.status(201).json(event);
+  } catch (error) {
+    console.error('❌ Error creating event:', error);
+    res.status(500).json({ error: 'Failed to create event' });
   }
-
-  const updatedEvent = {
-    ...events[eventIndex],
-    ...req.body,
-    id: events[eventIndex].id, // Preserve the original ID
-    updatedAt: new Date().toISOString(),
-  };
-
-  events[eventIndex] = updatedEvent;
-  console.log(`✅ Updated event: ${updatedEvent.title} (ID: ${id})`);
-
-  res.json(updatedEvent);
 });
 
 // Delete event
-app.delete('/api/events/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const eventIndex = events.findIndex(e => e.id === id);
-
-  if (eventIndex === -1) {
-    return res.status(404).json({ error: 'Event not found' });
+app.delete('/api/events/:id', async (req, res) => {
+  try {
+    const event = await Event.findByIdAndDelete(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    console.log(`🗑️ Deleted event: ${event.title}`);
+    res.json({ message: 'Event deleted', event });
+  } catch (error) {
+    console.error('❌ Error deleting event:', error);
+    res.status(500).json({ error: 'Failed to delete event' });
   }
-
-  const deletedEvent = events[eventIndex];
-  events.splice(eventIndex, 1);
-  console.log(`🗑️  Deleted event: ${deletedEvent.title} (ID: ${id})`);
-
-  res.json({
-    message: 'Event deleted successfully',
-    deletedEvent,
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err.stack);
+  console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Start server
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
-    console.log('═══════════════════════════════════════');
-    console.log('🚀 EventHub API Server is running!');
-    console.log('═══════════════════════════════════════');
-    console.log(`📍 Server: http://localhost:${PORT}`);
-    console.log(`📋 Events API: http://localhost:${PORT}/api/events`);
-    console.log(`💚 Health: http://localhost:${PORT}/health`);
-    console.log(`📊 Current events in database: ${events.length}`);
-    console.log('═══════════════════════════════════════');
+    console.log('🚀 Server Running');
+    console.log(`📍 http://localhost:${PORT}`);
   });
 }
 
-// Export for Vercel
 module.exports = app;
