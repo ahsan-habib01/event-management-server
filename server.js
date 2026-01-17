@@ -80,7 +80,7 @@ async function seedInitialData() {
           shortDescription:
             'Experience three days of amazing music performances from top artists worldwide',
           fullDescription:
-            'Experience three unforgettable days of amazing music performances from top artists worldwide. This summer music festival features multiple stages with diverse genres including rock, pop, electronic, and indie music.',
+            'Experience three unforgettable days of amazing music performances from top artists worldwide. This summer music festival features multiple stages with diverse genres including rock, pop, electronic, and indie music. WOW!',
           date: '2025-01-20',
           time: '12:00',
           location: 'Zilker Park, Austin, TX',
